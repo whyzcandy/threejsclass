@@ -1,7 +1,273 @@
-<html>
-    <head>Wecode Onshape WebGL workshop: Let's code a design tool</head>
-    <body>
-        <script src="js/three.js"></script>
-    </body>
-</html>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <title>Onshape: Let's code a design tool</title>
+    <meta charset="utf-8">
+</head>
+<body>
+    <div id="container"></div>
+    <script src="js/three.min.js">
+    </script>
+    <script src="js/dat.gui.min.js">
+    </script>
+    <script src="js/stats.min.js">
+    </script>
+    <script src="js/loaders/STLLoader.js">
+    </script>
+    <script src="js/controls/TrackballControls.js">
+    </script>
+    <script id="vertexShader" type="x-shader/x-vertex">
+               varying vec2 myPosition;
+               void main()
+               {
+                   vec4 mvPosition = modelViewMatrix * vec4(position, 1.0 );
+                   gl_Position = projectionMatrix * mvPosition;
+                   myPosition.x = gl_Position.x;
+                   myPosition.y = gl_Position.y;
+               }
+    </script>
+    <script id="fragmentShader" type="x-shader/x-fragment">
+               precision mediump float;
+               varying vec2 myPosition;
+               uniform float time;
 
+               float wave(vec2 p, float angle) {
+                 vec2 direction = vec2(cos(angle), sin(angle));
+                 return cos(dot(p, direction));
+               }
+
+               float wrap(float x) {
+                 return abs(mod(x, 2.)-1.);
+               }
+
+               void main() {
+                 vec2 p = (myPosition - 0.5) * 0.15;
+
+                 float brightness = 0.;
+                 for (float i = 1.; i <= 11.; i++) {
+                   brightness += wave(p, time / i);
+                 }
+
+                 brightness = wrap(brightness);
+
+                 gl_FragColor.rgb = vec3(brightness);
+                 gl_FragColor.a = 1.;
+               }
+    </script>
+    <script>
+               var container, renderer
+               var stats;
+               var enableAnimate = false;
+               var camera, scene;
+               var controls;
+               var loader;
+               var currentMaterial, currentModel, light;
+               var uniforms = {
+                   time: {value: 1}
+               };
+
+               var color = 0xee5555;
+
+               var clock = new THREE.Clock();
+
+               var models = ["frog", "cat", "head"];
+               var materials = ["no shading", "flat", "smooth"];
+               init();
+               animate();
+
+               function init() {
+                   container = document.getElementById('container');
+                   renderer = new THREE.WebGLRenderer();
+                   renderer.setPixelRatio(window.devicePixelRatio);
+                   renderer.setSize(window.innerWidth, window.innerHeight);
+                   renderer.setClearColor(0xffffff);
+                   container.appendChild(renderer.domElement);
+
+                   stats = new Stats();
+                   container.appendChild(stats.dom);
+
+                   scene = new THREE.Scene();
+                   camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 1, 10000);
+                   camera.position.z = 900;
+
+                   controls = new THREE.TrackballControls(camera, renderer.domElement);
+                   controls.noPan = true;
+                   controls.noZoom = false;
+                   controls.addEventListener('change', render);
+
+                   // load models and add them to the scene
+                   currentMaterial = getMaterial('flat');
+                   loader = new THREE.STLLoader();
+                   for (var i = 0; i < models.length; i++) {
+                       loadModel(models[i]);
+                   }
+
+                   addLights();
+                   createTorus();
+               }
+
+               function createTorus() {
+                   var geometry = new THREE.TorusGeometry(200, 40, 16, 100);
+                   var torus = new THREE.Mesh(geometry, currentMaterial);
+                   torus.name = 'torus';
+                   // Exercise 1: Add torus to the scene
+                   scene.add(torus);
+                   show('torus');
+               }
+
+               function render() {
+                   renderer.render(scene, camera);
+                   stats.update();
+               }
+
+               window.addEventListener('resize', onWindowResize, false);
+
+               function getMaterial(name) {
+                   switch (name) {
+                       case 'no shading':
+                           material = new THREE.MeshBasicMaterial({color: color});
+                           break;
+                       case 'flat':
+                           material = new THREE.MeshPhongMaterial({color: color, specular: 0x111111, shininess: 200,shading: THREE.FlatShading});
+                           break;
+                       case 'smooth':
+                           material = new THREE.MeshPhongMaterial( { color: color, specular: 0x111111, shininess: 200,
+                               shading: THREE.SmoothShading} );
+                           break;
+                       case 'shader':
+                           material = new THREE.ShaderMaterial( {
+                               uniforms: uniforms,
+                               vertexShader: document.getElementById( 'vertexShader' ).textContent,
+                               fragmentShader: document.getElementById( 'fragmentShader' ).textContent
+                           } );
+                   }
+                   return material;
+               }
+
+
+               function loadModel(name) {
+                   loader.load('./models/' + name + '.stl', function(geometry) {
+                       geometry = new THREE.Geometry().fromBufferGeometry(geometry);
+                       geometry.computeBoundingBox();
+                       var size = geometry.boundingBox.getSize();
+                       scale = 600 / Math.max(size.x, size.y, size.z);
+                       var center = geometry.boundingBox.getCenter().negate();
+                       geometry.translate(center.x, center.y, center.z);
+                       geometry.scale(scale, scale, scale);
+                       geometry.mergeVertices();
+                       geometry.computeVertexNormals();
+                       var mesh = new THREE.Mesh(geometry, currentMaterial);
+                       mesh.name = name;
+                       scene.add(mesh);
+                       show(name);
+                   });
+               }
+
+               function changeMaterial(name) {
+                   currentMaterial = getMaterial(name);
+                   currentModel.material = currentMaterial;
+               }
+
+               function updateColor(color) {
+                   currentMaterial.color = currentModel.material.color = new THREE.Color(color);
+               }
+
+               function show(name) {
+                   var object = scene.getObjectByName(name);
+                   if (currentModel) {
+                       currentModel.visible = false;
+                   }
+                   object.material = currentMaterial;
+                   object.visible = true;
+                   currentModel = object;
+               }
+
+               function initGui() {
+                   var gui = new dat.GUI();
+
+                   var modelFolder = gui.addFolder('Models');
+                   var shadingFolder = gui.addFolder('Shading');
+                   var modelAPI = {
+                       'cat': function() {show('cat');},
+                       'head': function() {show('head');},
+                       'frog': function() {show('frog');},
+                       'torus': function() {show('torus');}
+                   };
+                   modelFolder.add(modelAPI, 'cat');
+                   modelFolder.add(modelAPI, 'head');
+                   modelFolder.add(modelAPI, 'frog');
+                   modelFolder.add(modelAPI, 'torus');
+
+                   gui.add({
+                       wireframe: false
+                   }, 'wireframe').onChange(function(wireframe) {
+                       currentMaterial.wireframe = wireframe;
+                   });
+
+                   var shadingAPI = {
+                       color: color,
+                       'no shading': function() {changeMaterial('no shading');},
+                       'flat': function() {changeMaterial('flat');},
+                       'smooth': function() {changeMaterial('smooth')},
+                       'shader': function() {changeMaterial('shader')}
+                   }
+                   shadingFolder.addColor({color: color}, 'color').onChange(updateColor);
+                   shadingFolder.add(shadingAPI, 'no shading');
+                   shadingFolder.add(shadingAPI, 'flat');
+                   shadingFolder.add(shadingAPI, 'smooth');
+                   shadingFolder.add(shadingAPI, 'shader');
+
+                   var lightFolder = gui.addFolder('Light');
+                   lightFolder.add({'x': 1}, 'x', -1, 1).step(0.05).onChange(function(x) {
+                       light.position.x = x;
+                   });
+                   lightFolder.add({'y': 1}, 'y', -1, 1).step(0.05).onChange(function(y) {
+                       light.position.y = y;
+                   });
+                   lightFolder.add({'z': 1}, 'z', -1, 1).step(0.05).onChange(function(z) {
+                       light.position.z = z;
+                   });
+                   gui.add({'animate': enableAnimate}, 'animate').onChange(
+                       function(e) {
+                           enableAnimate = e;
+                       });
+               }
+
+               initGui();
+
+               function addLights(name) {
+                   scene.add( new THREE.HemisphereLight( 0x111111, 0x444444 ) );
+                   light = new THREE.DirectionalLight( 0xffffff, 1 );
+                   light.position.set( 1, 1, 1 );
+                   scene.add(light);
+               }
+
+               function onWindowResize() {
+                   camera.aspect = window.innerWidth / window.innerHeight;
+                   camera.updateProjectionMatrix();
+
+                   renderer.setSize(window.innerWidth, window.innerHeight);
+
+                   controls.handleResize();
+
+                   render();
+               }
+
+               function animate() {
+                   requestAnimationFrame(animate);
+
+                   controls.update();
+
+                   if (enableAnimate) {
+                       delta = clock.getDelta();
+                       uniforms.time.value += delta * 0.15;
+
+                       // Exercise 5: add rotation to the model
+                       currentModel.rotation.x += delta;
+                   }
+                   render();
+               }
+
+    </script>
+</body>
+</html>
