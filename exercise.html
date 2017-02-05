@@ -17,53 +17,56 @@
     <script src="js/controls/TrackballControls.js">
     </script>
     <script id="vertexShader" type="x-shader/x-vertex">
-               varying vec3 myNormal;
+               varying vec3 mvNormal;
                void main()
                {
-                   vec4 mvPosition = modelViewMatrix * vec4(position, 1.0 );
+                   vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
+                   mvNormal = normalize(normalMatrix * normal);
+
+                   // 2D position on the screen
                    gl_Position = projectionMatrix * mvPosition;
-                   myNormal = normalize(normalMatrix * normal);
                }
     </script>
-    <script id="fragmentShader" type="x-shader/x-fragment">
-               //precision mediump float;
+    <script id="fragmentShader" type="x-shader/x-fragment"> 
+               // normal from the calculation in the vertex shader.
+               varying vec3 mvNormal;
+
                // color of the model
                uniform vec3 modelColor;   
-               // position of the light
-               uniform vec3 lightPosition;  
 
-               // normal of the fragment based on calculation in the vertex shader.
-               varying vec3 myNormal;
+               // position of the light
+               uniform vec3 lightDirection;
 
                void main() {
                  // Light direction
-                 vec4 lightDirection = viewMatrix * vec4(lightPosition, 0.0);
-                 vec3 lightVector = normalize(lightDirection.xyz);
-                 vec3 normal = normalize(myNormal);
+                 vec4 mvLightDirection = viewMatrix * vec4(lightDirection, 0.0);
+                 vec3 lightVector = normalize(mvLightDirection.xyz);
 
                  // Intensity is a measure of the angle between normal and the light direction
-                 float intensity = dot(normal, lightVector);
+                 float intensity = dot(mvNormal, lightVector);
 
                  vec3 color;
-
-                 // Change the intensity thresholds
+                 /* Exercise 4-1: What happens if you change the intensity thresholds?
+                    Hint: intensity < 0, facing away from the light; intensity > 0, facing towards the light
+                    */
                  if (intensity > .6)
                  {
-                    // What happens if you replaced color with some other value?
-                    // Hint: color is represented as a vector of RGB i.e. Red,Green,Blue components
-                    // in GLSL vec3(r,g,b) where r,g,b are can take values 0-1
-
-                    color = modelColor * .9; // change the value, modelColor is multiplied with
+                    /* Exercise 4-2: What happens when you change the scalar modelColor is multiplied with?
+                       Exercise 4-3: What happens if you replaced color with some other value?
+                       Hint: color is represented as a vector of RGB i.e. Red,Green,Blue components
+                             in GLSL vec3(r,g,b) where r,g,b are can take values 0-1. */
+                    color = modelColor * .9; 
                  }
                  else if (intensity > -.2)
                  {
-                    color = modelColor * .4; // change the value, modelColor is multiplied with
+                    color = modelColor * .4; // 
                  }
                  else
                  {
                     color = modelColor * .2; // change the value, modelColor is multiplied with
                  }
 
+                 // rgba: red, green, blue, transparency alpha
                  gl_FragColor = vec4(color, 1.0);
                }
     </script>
@@ -74,14 +77,15 @@
                var camera, scene;
                var controls;
                var loader;
-               var material, currentModel, light;
-               var uniforms = {
-                   modelColor: {type: 'c', value: new THREE.Color('red')},
-                   lightPosition: {value: new THREE.Vector3(1.0 ,1.0, 1.0)}
-               };
+               var material, light;
 
                var color = 0xee5555;
+               var uniforms = {
+                   modelColor: {type: 'c', value: new THREE.Color(color)},
+                   lightDirection: {value: new THREE.Vector3(1.0 ,1.0, 1.0)}
+               };
 
+               var loader = new THREE.STLLoader();
                var clock = new THREE.Clock();
 
                var materials = ["no shading", "flat", "smooth"];
@@ -108,20 +112,60 @@
                    controls.noZoom = false;
                    controls.addEventListener('change', render);
 
-                   // load models and add them to the scene
-                   material = getMaterial('flat');
-                   loader = new THREE.STLLoader();
-                   loadModel("frog");
-                   addLights();
+                   // Exercise 5: Uncomment the following line
+                   // loadModel("frog");
+                   
+                   /* Exercise 1: create a torus */
                    createTorus();
+
+                   /* Exercise 3: add lights */
+                   addLight();
+               }
+
+               function addLight() {
+                   /* Exercise 3-1: Add directional light
+                      Hint: DirectionalLight( hex, intensity )
+                        color - (optional) hexadecimal color of the light. Default is 0xffffff (white).
+                        intensity - (optional) numeric value of the light's strength/intensity. Default is 1.
+                   */
+                   // light =
+
+                   /* Exercise 3-2: Change the direction of the light
+                      Hint: .position.set(x, y, z)
+                         This is set equal to Object3D.DefaultUp (0, 1, 0), so that the light shines from the top down.
+                   */
+
+                   /* Exercise 3-3: Add the light to the scene */
                }
 
                function createTorus() {
-                   var geometry = new THREE.TorusGeometry(200, 40, 16, 100);
-                   var torus = new THREE.Mesh(geometry, material);
-                   torus.name = 'torus';
-                   scene.add(torus);
-                   show('torus');
+                   /* Exercise 1-1: Create a THREE.TorusGeometry.
+                      Hint: TorusGeometry(radius, tube, radialSegments, tubularSegments, arc)
+                        radius — Default is 100. 
+                        tube — Diameter of the tube. Default is 40. 
+                        radialSegments — Default is 8 
+                        tubularSegments — Default is 6. 
+                        arc — Central angle. Default is Math.PI * 2.
+                    */
+                   // var geometry =
+
+                   /* Exercise 2: Set wireframe to false. */
+                   /* Exercise 4: Change shading to THREE.SmoothShading */
+                   material = new THREE.MeshPhongMaterial({color: color, wireframe: false, shading: THREE.FlatShading});
+
+                   /* Exercise 1-2: Create a THREE.Mesh.
+                      Hint: Mesh( geometry, material )
+                        geometry — (optional) an instance of Geometry or BufferGeometry. Default is a new BufferGeometry.
+                        material — (optional) a Material. Default is a new MeshBasicMaterial with a random color.
+                   */
+                   // var torus =
+                   // torus.name = 'torus';
+
+                   /* Exercise 1-3: Add the mesh to the scene.
+                      Hint: scene.add ( object, ... )
+                        Adds object as child of this object. An arbitrary number of objects may be added.
+                   */
+
                }
 
                function render() {
@@ -137,17 +181,17 @@
                            material = new THREE.MeshBasicMaterial({color: color});
                            break;
                        case 'flat':
-                           material = new THREE.MeshPhongMaterial({color: color, specular: 0x111111, shininess: 200,shading: THREE.FlatShading});
+                           material = new THREE.MeshPhongMaterial({color: color, specular: 0x111111, shininess: 200, shading: THREE.FlatShading});
                            break;
                        case 'smooth':
                            material = new THREE.MeshPhongMaterial( { color: color, specular: 0x111111, shininess: 200,
                                shading: THREE.SmoothShading} );
                            break;
-                       case 'shader':
+                       case 'toon shader':
                            material = new THREE.ShaderMaterial( {
                                uniforms: uniforms,
-                               vertexShader: document.getElementById( 'vertexShader' ).textContent,
-                               fragmentShader: document.getElementById( 'fragmentShader' ).textContent
+                               vertexShader: document.getElementById('vertexShader').textContent,
+                               fragmentShader: document.getElementById('fragmentShader').textContent
                            } );
                    }
                    return material;
@@ -168,28 +212,32 @@
                        var mesh = new THREE.Mesh(geometry, material);
                        mesh.name = name;
                        scene.add(mesh);
-                       show(name);
+                       mesh.visible = false;
                    });
                }
 
                function changeMaterial(name) {
                    material = getMaterial(name);
-                   currentModel.material = material;
+                   scene.traverse(function(object) {
+                       if (object instanceof THREE.Mesh) {
+                           object.material = material;
+                       }
+                   });
                }
 
                function updateColor(color) {
-                   material.color = currentModel.material.color = new THREE.Color(color);
+                   material.color = new THREE.Color(color);
                    uniforms.modelColor.value = material.color;
                }
 
                function show(name) {
                    var object = scene.getObjectByName(name);
-                   if (currentModel) {
-                       currentModel.visible = false;
-                   }
-                   object.material = material;
                    object.visible = true;
-                   currentModel = object;
+                   scene.traverse(function(object) {
+                       if (object.name !== name && object instanceof THREE.Mesh) {
+                           object.visible = false;
+                       }
+                   });
                }
 
                function initGui() {
@@ -211,13 +259,13 @@
                        'no shading': function() {changeMaterial('no shading');},
                        'flat': function() {changeMaterial('flat');},
                        'smooth': function() {changeMaterial('smooth')},
-                       'shader': function() {changeMaterial('shader')}
+                       'toon shader': function() {changeMaterial('toon shader')}
                    }
                    shadingFolder.addColor({color: color}, 'color').onChange(updateColor);
                    shadingFolder.add(shadingAPI, 'no shading');
                    shadingFolder.add(shadingAPI, 'flat');
                    shadingFolder.add(shadingAPI, 'smooth');
-                   shadingFolder.add(shadingAPI, 'shader');
+                   shadingFolder.add(shadingAPI, 'toon shader');
 
                    var lightFolder = gui.addFolder('Light');
                    lightFolder.add({'x': 1}, 'x', -1, 1).step(0.05).onChange(function(x) {
@@ -240,13 +288,6 @@
 
                initGui();
 
-               function addLights(name) {
-                   scene.add( new THREE.HemisphereLight( 0x111111, 0x444444 ) );
-                   light = new THREE.DirectionalLight( 0xffffff, 1 );
-                   light.position.set( 1, 1, 1 );
-                   scene.add(light);
-               }
-
                function onWindowResize() {
                    camera.aspect = window.innerWidth / window.innerHeight;
                    camera.updateProjectionMatrix();
@@ -262,9 +303,6 @@
                    requestAnimationFrame(animate);
                    controls.update();
                    delta = clock.getDelta();
-                   if (enableAnimate) {
-                     currentModel.rotation.y += delta;
-                   }
                    render();
                }
 
